@@ -1,3 +1,4 @@
+const bycrypt = require('bcryptjs')
 require('dotenv').config()
 const express = require('express');
 const path = require('path');
@@ -36,14 +37,18 @@ app.get("/", (req, res) => {
 });
 app.get('/sign-up', (req, res) => res.render('sign-up-form'))
 app.post('/sign-up', (req, res, next) => {
-  const user = new User({
-    username: req.body.username,
-    password: req.body.password
-  }).save(err => {
-    if (err) {
-      return next(err)
-    };
-    res.redirect('/');
+  bycrypt.hash(req.body.password, 10, (err, hashedPassword) => {
+    // if err, do something
+    // otherwise, store hashedPassword in DB
+    const user = new User({
+      username: req.body.username,
+      password: hashedPassword
+    }).save(err => {
+      if (err) {
+        return next(err)
+      };
+      res.redirect('/');
+    });
   });
 })
 app.post(
@@ -67,10 +72,16 @@ passport.use(
       if (!user) {
         return doesNotReject(null, false, { message: 'Incorrect username' })
       }
-      if (user.password !== password) {
-        return done(null, false, { message: 'Incorrect password' })
-      }
-      return done(null, user)
+      bycrypt.compare(password, user.password, (err, res) => {
+        if (res) {
+          //pass match log in
+          return done(null, user)
+        } else {
+          //pass do not match
+          return done(null, false, { message: 'Incorrect password' })
+        }
+      })
+
     }
     )
   })
